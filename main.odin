@@ -12,7 +12,15 @@ import nanovg_gl "vendor:nanovg/gl"
 GL_MAJOR :: 3
 GL_MINOR :: 3
 
-Citrus :: enum {
+Maybe :: union($T: typeid) {
+	T,
+}
+
+Entity :: struct {
+	position: [2]f32,
+}
+
+Citrus_Type :: enum {
 	None,
 	Lemon,
 	Lime,
@@ -27,46 +35,79 @@ Citrus_State :: enum {
 }
 
 Tree :: struct {
-	citrus:         Citrus,
-	citrus_slots:   [dynamic]Citrus_State,
+	using entity:   Entity,
+	citrus_type:    Citrus_Type,
+	citrus:         [dynamic]Citrus_State,
 	amount:         int,
 	capacity:       int,
 	grow_time:      f64,
 	current_growth: f64,
 }
 
+Citrus :: struct {
+	using entity: Entity,
+	type:         Citrus_Type,
+	state:        Citrus_State,
+}
+
 Converters :: struct {
-	input:            [dynamic]Citrus,
-	output:           [dynamic]Citrus,
-	recipe_input:     [dynamic]Citrus,
-	recipe_output:    [dynamic]Citrus,
+	input:            [dynamic]Citrus_Type,
+	output:           [dynamic]Citrus_Type,
+	recipe_input:     [dynamic]Citrus_Type,
+	recipe_output:    [dynamic]Citrus_Type,
 	run_time:         f64,
 	current_run_time: f64,
 }
 
 Recipe :: struct {
-	ingredients: [dynamic]Citrus,
+	ingredients: [dynamic]Citrus_Type,
 }
 
 trees: [4]Tree
-basket: [dynamic]Citrus
+basket: [dynamic]Citrus_Type
+carried: Maybe(Citrus_Type)
 
-init :: proc() {
+init :: proc(io: input.Details) {
 	trees = [4]Tree {
-		Tree{.Lemon, make([dynamic]Citrus_State, 4), 0, 4, 2, 0},
-		Tree{.Lime, make([dynamic]Citrus_State, 3), 0, 3, 3, 0},
-		Tree{.Orange, make([dynamic]Citrus_State, 2), 0, 2, 4, 0},
-		Tree{.Grapes, make([dynamic]Citrus_State, 1), 0, 1, 5, 0},
+		Tree {
+			citrus_type = .Lemon,
+			citrus = make([dynamic]Citrus_State, 4),
+			capacity = 4,
+			grow_time = 2,
+		},
+		Tree {
+			citrus_type = .Lime,
+			citrus = make([dynamic]Citrus_State, 3),
+			capacity = 3,
+			grow_time = 3,
+		},
+		Tree {
+			citrus_type = .Orange,
+			citrus = make([dynamic]Citrus_State, 2),
+			capacity = 2,
+			grow_time = 4,
+		},
+		Tree {
+			citrus_type = .Grapes,
+			citrus = make([dynamic]Citrus_State, 1),
+			capacity = 1,
+			grow_time = 5,
+		},
 	}
-	basket = make([dynamic]Citrus, 8)
+	basket = make([dynamic]Citrus_Type, 8)
 }
 
-update :: proc(delta: f64) {
+update :: proc(delta: f64, io: input.Details) {
+	trees[0].position = {io.height * .2, io.height * .2}
+	trees[1].position = {io.height * .2, io.height * .4}
+	trees[2].position = {io.height * .2, io.height * .6}
+	trees[3].position = {io.height * .2, io.height * .8}
+
 	// grow citrus
 	for &tree in trees {
 		if tree.amount >= tree.capacity do continue
 		tree.current_growth += delta
-		for &slot in tree.citrus_slots {
+		for &slot in tree.citrus {
 			if slot == .Growing do break
 			if slot == .Gone {
 				slot = .Growing
@@ -77,34 +118,41 @@ update :: proc(delta: f64) {
 
 		tree.amount += 1
 		tree.current_growth -= tree.grow_time
-		for &slot in tree.citrus_slots {
+		for &slot in tree.citrus {
 			if slot == .Growing {
 				slot = .Grown
 				break
 			}
 		}
 	}
+
+	// // hover citrus
+	// for tree in trees {
+	// 	for slot in tree.citrus_slots {
+
+	// 	}
+	// }
 }
 
 draw :: proc(io: input.Details, nanovg_context: ^nanovg.Context) {
 	nanovg.BeginFrame(nanovg_context, io.width, io.height, max(io.pixel_ratio, 1))
 
-	drawTree(io, nanovg_context, io.height * .2, io.height * .2, trees[0])
-	drawTree(io, nanovg_context, io.height * .2, io.height * .4, trees[1])
-	drawTree(io, nanovg_context, io.height * .2, io.height * .6, trees[2])
-	drawTree(io, nanovg_context, io.height * .2, io.height * .8, trees[3])
+	drawTree(io, nanovg_context, trees[0])
+	drawTree(io, nanovg_context, trees[1])
+	drawTree(io, nanovg_context, trees[2])
+	drawTree(io, nanovg_context, trees[3])
 
 	drawBasket(io, nanovg_context)
 
 	nanovg.EndFrame(nanovg_context)
 }
 
-drawTree :: proc(io: input.Details, nanovg_context: ^nanovg.Context, x, y: f32, tree: Tree) {
+drawTree :: proc(io: input.Details, nanovg_context: ^nanovg.Context, tree: Tree) {
 	nanovg.BeginPath(nanovg_context)
 	nanovg.RoundedRect(
 		nanovg_context,
-		x - io.height * .075,
-		y - io.height * .075,
+		tree.position.x - io.height * .075,
+		tree.position.y - io.height * .075,
 		io.height * .15,
 		io.height * .15,
 		io.height * .01,
@@ -112,7 +160,7 @@ drawTree :: proc(io: input.Details, nanovg_context: ^nanovg.Context, x, y: f32, 
 	nanovg.FillColor(nanovg_context, nanovg.RGB(135, 163, 46))
 	nanovg.Fill(nanovg_context)
 
-	colors := [Citrus]nanovg.Color {
+	colors := [Citrus_Type]nanovg.Color {
 		.None   = nanovg.RGB(255, 255, 255),
 		.Lemon  = nanovg.RGB(255, 255, 0),
 		.Lime   = nanovg.RGB(0, 255, 0),
@@ -120,12 +168,12 @@ drawTree :: proc(io: input.Details, nanovg_context: ^nanovg.Context, x, y: f32, 
 		.Grapes = nanovg.RGB(138, 43, 226),
 	}
 
-	for slot, i in tree.citrus_slots {
+	for slot, i in tree.citrus {
 		logicalX := f32(i % 3)
 		logicalY := f32(math.floor(f32(i) / 3))
 		slotSpace := io.height * .15 / 4
-		xPosition := (x - io.height * .075) + slotSpace * logicalX + slotSpace
-		yPosition := (y - io.height * .075) + slotSpace * logicalY + slotSpace
+		xPosition := (tree.position.x - io.height * .075) + slotSpace * logicalX + slotSpace
+		yPosition := (tree.position.y - io.height * .075) + slotSpace * logicalY + slotSpace
 
 		nanovg.BeginPath(nanovg_context)
 		nanovg.Circle(nanovg_context, xPosition, yPosition, io.height * .01)
@@ -140,7 +188,7 @@ drawTree :: proc(io: input.Details, nanovg_context: ^nanovg.Context, x, y: f32, 
 			nanovg.Stroke(nanovg_context)
 			nanovg.BeginPath(nanovg_context)
 			nanovg.Circle(nanovg_context, xPosition, yPosition, io.height * .01)
-			nanovg.FillColor(nanovg_context, colors[tree.citrus])
+			nanovg.FillColor(nanovg_context, colors[tree.citrus_type])
 			nanovg.Fill(nanovg_context)
 		}
 
@@ -152,7 +200,7 @@ drawTree :: proc(io: input.Details, nanovg_context: ^nanovg.Context, x, y: f32, 
 				yPosition,
 				io.height * .01 * f32(tree.current_growth / tree.grow_time),
 			)
-			nanovg.FillColor(nanovg_context, colors[tree.citrus])
+			nanovg.FillColor(nanovg_context, colors[tree.citrus_type])
 			nanovg.Fill(nanovg_context)
 		}
 	}
@@ -200,7 +248,8 @@ main :: proc() {
 	nanovg_context := nanovg_gl.Create({.ANTI_ALIAS, .STENCIL_STROKES})
 	defer nanovg_gl.Destroy(nanovg_context)
 
-	init()
+	io := input.poll(window)
+	init(io)
 	last_time := time.tick_now()
 	for !glfw.WindowShouldClose(window) {
 		glfw.PollEvents()
@@ -209,9 +258,9 @@ main :: proc() {
 		delta := time.duration_seconds(time.tick_diff(last_time, now))
 		last_time = now
 
-		io := input.poll(window)
+		io = input.poll(window)
 
-		update(delta)
+		update(delta, io)
 
 		// Setup Render
 		OpenGL.Viewport(0, 0, io.frame_width, io.frame_height)
