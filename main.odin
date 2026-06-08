@@ -37,7 +37,7 @@ Citrus_State :: enum {
 Tree :: struct {
 	using entity:   Entity,
 	citrus_type:    Citrus_Type,
-	citrus:         [dynamic]Citrus_State,
+	citrus:         [dynamic]Citrus,
 	amount:         int,
 	capacity:       int,
 	grow_time:      f64,
@@ -69,32 +69,23 @@ carried: Maybe(Citrus_Type)
 
 init :: proc(io: input.Details) {
 	trees = [4]Tree {
-		Tree {
-			citrus_type = .Lemon,
-			citrus = make([dynamic]Citrus_State, 4),
-			capacity = 4,
-			grow_time = 2,
-		},
-		Tree {
-			citrus_type = .Lime,
-			citrus = make([dynamic]Citrus_State, 3),
-			capacity = 3,
-			grow_time = 3,
-		},
+		Tree{citrus_type = .Lemon, citrus = make([dynamic]Citrus, 4), capacity = 4, grow_time = 2},
+		Tree{citrus_type = .Lime, citrus = make([dynamic]Citrus, 3), capacity = 3, grow_time = 3},
 		Tree {
 			citrus_type = .Orange,
-			citrus = make([dynamic]Citrus_State, 2),
+			citrus = make([dynamic]Citrus, 2),
 			capacity = 2,
 			grow_time = 4,
 		},
 		Tree {
 			citrus_type = .Grapes,
-			citrus = make([dynamic]Citrus_State, 1),
+			citrus = make([dynamic]Citrus, 1),
 			capacity = 1,
 			grow_time = 5,
 		},
 	}
 	basket = make([dynamic]Citrus_Type, 8)
+
 }
 
 update :: proc(delta: f64, io: input.Details) {
@@ -103,14 +94,25 @@ update :: proc(delta: f64, io: input.Details) {
 	trees[2].position = {io.height * .2, io.height * .6}
 	trees[3].position = {io.height * .2, io.height * .8}
 
+	for tree in trees {
+		for &citrus, i in tree.citrus {
+			logicalX := f32(i % 3)
+			logicalY := f32(math.floor(f32(i) / 3))
+			slotSpace := io.height * .15 / 4
+			xPosition := (tree.position.x - io.height * .075) + slotSpace * logicalX + slotSpace
+			yPosition := (tree.position.y - io.height * .075) + slotSpace * logicalY + slotSpace
+			citrus.position = {xPosition, yPosition}
+		}
+	}
+
 	// grow citrus
 	for &tree in trees {
 		if tree.amount >= tree.capacity do continue
 		tree.current_growth += delta
-		for &slot in tree.citrus {
-			if slot == .Growing do break
-			if slot == .Gone {
-				slot = .Growing
+		for &citrus in tree.citrus {
+			if citrus.state == .Growing do break
+			if citrus.state == .Gone {
+				citrus.state = .Growing
 				break
 			}
 		}
@@ -118,20 +120,20 @@ update :: proc(delta: f64, io: input.Details) {
 
 		tree.amount += 1
 		tree.current_growth -= tree.grow_time
-		for &slot in tree.citrus {
-			if slot == .Growing {
-				slot = .Grown
+		for &citrus in tree.citrus {
+			if citrus.state == .Growing {
+				citrus.state = .Grown
 				break
 			}
 		}
 	}
 
-	// // hover citrus
-	// for tree in trees {
-	// 	for slot in tree.citrus_slots {
+	// hover citrus
+	for tree in trees {
+		for citrus in tree.citrus {
 
-	// 	}
-	// }
+		}
+	}
 }
 
 draw :: proc(io: input.Details, nanovg_context: ^nanovg.Context) {
@@ -168,36 +170,30 @@ drawTree :: proc(io: input.Details, nanovg_context: ^nanovg.Context, tree: Tree)
 		.Grapes = nanovg.RGB(138, 43, 226),
 	}
 
-	for slot, i in tree.citrus {
-		logicalX := f32(i % 3)
-		logicalY := f32(math.floor(f32(i) / 3))
-		slotSpace := io.height * .15 / 4
-		xPosition := (tree.position.x - io.height * .075) + slotSpace * logicalX + slotSpace
-		yPosition := (tree.position.y - io.height * .075) + slotSpace * logicalY + slotSpace
-
+	for citrus in tree.citrus {
 		nanovg.BeginPath(nanovg_context)
-		nanovg.Circle(nanovg_context, xPosition, yPosition, io.height * .01)
+		nanovg.Circle(nanovg_context, citrus.position.x, citrus.position.y, io.height * .01)
 		nanovg.FillColor(nanovg_context, nanovg.RGBA(0, 0, 0, 50))
 		nanovg.Fill(nanovg_context)
 
-		if slot == .Grown {
+		if citrus.state == .Grown {
 			nanovg.BeginPath(nanovg_context)
-			nanovg.Circle(nanovg_context, xPosition, yPosition, io.height * .01)
+			nanovg.Circle(nanovg_context, citrus.position.x, citrus.position.y, io.height * .01)
 			nanovg.StrokeColor(nanovg_context, nanovg.RGBA(255, 255, 255, 50))
 			nanovg.StrokeWidth(nanovg_context, io.height * .01)
 			nanovg.Stroke(nanovg_context)
 			nanovg.BeginPath(nanovg_context)
-			nanovg.Circle(nanovg_context, xPosition, yPosition, io.height * .01)
+			nanovg.Circle(nanovg_context, citrus.position.x, citrus.position.y, io.height * .01)
 			nanovg.FillColor(nanovg_context, colors[tree.citrus_type])
 			nanovg.Fill(nanovg_context)
 		}
 
-		if slot == .Growing {
+		if citrus.state == .Growing {
 			nanovg.BeginPath(nanovg_context)
 			nanovg.Circle(
 				nanovg_context,
-				xPosition,
-				yPosition,
+				citrus.position.x,
+				citrus.position.y,
 				io.height * .01 * f32(tree.current_growth / tree.grow_time),
 			)
 			nanovg.FillColor(nanovg_context, colors[tree.citrus_type])
@@ -250,6 +246,7 @@ main :: proc() {
 
 	io := input.poll(window)
 	init(io)
+
 	last_time := time.tick_now()
 	for !glfw.WindowShouldClose(window) {
 		glfw.PollEvents()
