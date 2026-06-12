@@ -3,6 +3,7 @@ package main
 import "core:fmt"
 import "core:math"
 import "core:time"
+import "drawing"
 import "input"
 import "vendor:OpenGL"
 import "vendor:glfw"
@@ -66,6 +67,7 @@ Recipe :: struct {
 trees: [4]Tree
 basket: [dynamic]Citrus_Type
 carried: Maybe(Citrus_Type)
+citrus_radius: f32
 
 init :: proc(io: input.Details) {
 	trees = [4]Tree {
@@ -104,6 +106,7 @@ update :: proc(delta: f64, io: input.Details) {
 			citrus.position = {xPosition, yPosition}
 		}
 	}
+	citrus_radius = io.height * .01
 
 	// grow citrus
 	for &tree in trees {
@@ -139,12 +142,13 @@ update :: proc(delta: f64, io: input.Details) {
 draw :: proc(io: input.Details, nanovg_context: ^nanovg.Context) {
 	nanovg.BeginFrame(nanovg_context, io.width, io.height, max(io.pixel_ratio, 1))
 
-	drawTree(io, nanovg_context, trees[0])
-	drawTree(io, nanovg_context, trees[1])
-	drawTree(io, nanovg_context, trees[2])
-	drawTree(io, nanovg_context, trees[3])
+	drawing.draw(io, nanovg_context)
+	// drawTree(io, nanovg_context, trees[0])
+	// drawTree(io, nanovg_context, trees[1])
+	// drawTree(io, nanovg_context, trees[2])
+	// drawTree(io, nanovg_context, trees[3])
 
-	drawBasket(io, nanovg_context)
+	// drawBasket(io, nanovg_context)
 
 	nanovg.EndFrame(nanovg_context)
 }
