@@ -1,6 +1,8 @@
 package drawing
 
+import "../game"
 import "../input"
+import hm "core:container/handle_map"
 import "core:math"
 import "vendor:nanovg"
 
@@ -13,10 +15,19 @@ Z_AXIS :: [2]f32{0, -1}
 
 draw :: proc(io: input.Details, nc: ^nanovg.Context) {
 	nanovg_context = nc
+	nanovg.BeginFrame(nanovg_context, io.width, io.height, max(io.pixel_ratio, 1))
+
 	axis_unit_length = math.min(io.width / 2, io.height) / 11
 	base_point = {io.width / 2, io.height / 2 + 2 * math.SQRT_FIVE * axis_unit_length}
 	draw_base()
-	draw_tree({5, 5, 0})
+
+	iterator := hm.iterator_make(&game.entities)
+	for entity, handle in hm.iterate(&iterator) {
+		if tree, tree_ok := entity.type.(game.Tree); tree_ok {
+			draw_tree(entity.position)
+		}
+	}
+	nanovg.EndFrame(nanovg_context)
 }
 
 logical_to_real :: proc(point: [3]f32) -> (real: [2]f32) {
@@ -47,23 +58,23 @@ draw_shape :: proc(color: nanovg.Color, points: ..[3]f32) {
 draw_tree :: proc(position: [3]f32) {
 	draw_shape(
 		nanovg.ColorHex(0xff3b132b),
-		position + {-.75, .75, 2},
-		position + {.75, .75, 2},
-		position + {.75, -.75, 2},
-		position + {-.75, -.75, 2},
+		position + {-.3, .3, 1},
+		position + {.3, .3, 1},
+		position + {.3, -.3, 1},
+		position + {-.3, -.3, 1},
 	)
 	draw_shape(
 		nanovg.ColorHex(0xffb2555d),
-		position + {-.5, -.5, 0},
-		position + {.5, -.5, 0},
-		position + {.75, -.75, 2},
-		position + {-.75, -.75, 2},
+		position + {-.2, -.2, 0},
+		position + {.2, -.2, 0},
+		position + {.3, -.3, 1},
+		position + {-.3, -.3, 1},
 	)
 	draw_shape(
 		nanovg.ColorHex(0xff8b3a49),
-		position + {-.5, -.5, 0},
-		position + {-.5, .5, 0},
-		position + {-.75, .75, 2},
-		position + {-.75, -.75, 2},
+		position + {-.2, -.2, 0},
+		position + {-.2, .2, 0},
+		position + {-.3, .3, 1},
+		position + {-.3, -.3, 1},
 	)
 }
