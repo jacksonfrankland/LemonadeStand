@@ -54,7 +54,7 @@ main :: proc() {
 
 		io = input.poll(window)
 
-		game.update(delta)
+		game.update(delta, io)
 
 		// Setup Render
 		OpenGL.Viewport(0, 0, io.frame_width, io.frame_height)
