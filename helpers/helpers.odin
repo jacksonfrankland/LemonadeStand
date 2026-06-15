@@ -1,7 +1,6 @@
 package helpers
 
 import "core:math"
-import "core:math/linalg"
 
 base_point: [2]f32
 axis_unit_length: f32
